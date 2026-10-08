@@ -1,5 +1,7 @@
 fastapi
 uvicorn
-requests
-pandas
 fyers-apiv3
+pandas
+pandas-ta
+requests
+
