@@ -18,7 +18,7 @@ DHAN_ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN", "")
 NIFTY_SECURITY_ID = "13"       # Dhan Security ID for Nifty 50 Index
 NIFTY_LOT_SIZE = 65            # 1 Lot = 65 Units
 
-# Initialize Dhan Client using updated DhanContext
+# Initialize Dhan Client
 dhan_context = DhanContext(DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN)
 dhan = dhanhq(dhan_context)
 
@@ -54,12 +54,11 @@ def run_trading_engine_cycle():
     auto_renew_token()
 
     try:
-        # Define date range for intraday fetch (last 5 days to cover weekends/holidays)
         today = datetime.now()
         from_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
         to_date = today.strftime("%Y-%m-%d")
 
-        # 1. Fetch 5-Minute Intraday Data
+        # 1. Fetch Intraday 5-Min Data
         res = dhan.get_intraday_data(
             security_id=NIFTY_SECURITY_ID,
             exchange_segment="IDX_I",
@@ -108,7 +107,7 @@ def run_trading_engine_cycle():
         # 3. Execution Verification Logic
         signal = None
 
-        # Check Volatility Expansion First
+        # Volatility Filter Check
         is_volatility_sufficient = curr["ATR"] >= (curr["ATR_SMA"] * 0.90)
 
         if not is_volatility_sufficient:
