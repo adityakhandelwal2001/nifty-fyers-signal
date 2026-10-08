@@ -2,6 +2,7 @@ import os
 import requests
 import pandas as pd
 import pandas_ta as ta
+from datetime import datetime, timedelta
 from fastapi import FastAPI, BackgroundTasks
 from dhanhq import dhanhq, DhanContext
 
@@ -53,11 +54,19 @@ def run_trading_engine_cycle():
     auto_renew_token()
 
     try:
+        # Define date range for intraday fetch (last 5 days to cover weekends/holidays)
+        today = datetime.now()
+        from_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+
         # 1. Fetch 5-Minute Intraday Data
-        res = dhan.intraday_minute_data(
+        res = dhan.get_intraday_data(
             security_id=NIFTY_SECURITY_ID,
             exchange_segment="IDX_I",
-            instrument_type="INDEX"
+            instrument_type="INDEX",
+            from_date=from_date,
+            to_date=to_date,
+            interval="5"
         )
 
         if not res or res.get("status") != "success" or "data" not in res:
@@ -67,6 +76,9 @@ def run_trading_engine_cycle():
         df = pd.DataFrame(res["data"])
         if "start_Time" in df.columns:
             df["datetime"] = pd.to_datetime(df["start_Time"])
+        elif "timestamp" in df.columns:
+            df["datetime"] = pd.to_datetime(df["timestamp"])
+
         df = df.sort_values("datetime").reset_index(drop=True)
 
         if len(df) < 50:
@@ -145,4 +157,3 @@ def root():
 def cron_webhook_trigger(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_trading_engine_cycle)
     return {"status": "Engine cycle launched in background."}
-
