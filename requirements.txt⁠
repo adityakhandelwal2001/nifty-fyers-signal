@@ -2,7 +2,8 @@ fastapi
 uvicorn
 fyers-apiv3
 pandas
-pandas-ta==0.3.14b0
+git+https://github.com/twopirllc/pandas-ta.git
 requests
+
 
 
