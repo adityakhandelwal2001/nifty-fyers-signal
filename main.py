@@ -58,14 +58,13 @@ def run_trading_engine_cycle():
         from_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
         to_date = today.strftime("%Y-%m-%d")
 
-        # 1. Fetch Intraday 5-Min Data
-        res = dhan.get_intraday_data(
-            security_id=NIFTY_SECURITY_ID,
-            exchange_segment="IDX_I",
-            instrument_type="INDEX",
-            from_date=from_date,
-            to_date=to_date,
-            interval="5"
+        # 1. Fetch 5-Minute Intraday Data using official SDK method
+        res = dhan.intraday_minute_data(
+            NIFTY_SECURITY_ID,
+            "IDX_I",
+            "INDEX",
+            from_date,
+            to_date
         )
 
         if not res or res.get("status") != "success" or "data" not in res:
