@@ -3,9 +3,9 @@ import requests
 import pandas as pd
 import pandas_ta as ta
 from fastapi import FastAPI, BackgroundTasks
-from dhanhq import dhanhq
+from dhanhq import dhanhq, DhanContext
 
-app = FastAPI(title="Nifty World-Class Quant Option Engine")
+app = FastAPI(title="Nifty Institutional Quant Engine (Dhan)")
 
 # =====================================================================
 # CONFIGURATION & CREDENTIALS
@@ -17,15 +17,16 @@ DHAN_ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN", "")
 NIFTY_SECURITY_ID = "13"       # Dhan Security ID for Nifty 50 Index
 NIFTY_LOT_SIZE = 65            # 1 Lot = 65 Units
 
-# Initialize Dhan Client
-dhan = dhanhq(DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN)
+# Initialize Dhan Client using updated DhanContext
+dhan_context = DhanContext(DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN)
+dhan = dhanhq(dhan_context)
 
 # =====================================================================
 # AUTOMATIC TOKEN RENEWAL
 # =====================================================================
 def auto_renew_token():
     """Keeps the engine running indefinitely by renewing access tokens."""
-    global DHAN_ACCESS_TOKEN, dhan
+    global DHAN_ACCESS_TOKEN, dhan, dhan_context
     url = "https://api.dhan.co/v2/RenewToken"
     headers = {
         "access-token": DHAN_ACCESS_TOKEN,
@@ -36,7 +37,8 @@ def auto_renew_token():
         data = response.json()
         if response.status_code == 200 and "accessToken" in data:
             DHAN_ACCESS_TOKEN = data["accessToken"]
-            dhan = dhanhq(DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN)
+            dhan_context = DhanContext(DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN)
+            dhan = dhanhq(dhan_context)
             print("✅ [AUTH] Token automatically renewed for next 24 Hours.")
         else:
             print(f"⚠️ [AUTH WARNING] Renewal response: {data}")
@@ -102,10 +104,6 @@ def run_trading_engine_cycle():
             return
 
         # INSTITUTIONAL CALL BUY SIGNAL RULES:
-        # - Spot above VWAP and 50 EMA
-        # - Supertrend Bullish (1)
-        # - Bullish Crossover on 9/21 EMA
-        # - RSI in sweet-spot momentum zone (52 to 68)
         if (curr["close"] > curr["VWAP"] and 
             curr["close"] > curr["EMA_50"] and 
             curr["ST_DIR"] == 1 and
@@ -114,10 +112,6 @@ def run_trading_engine_cycle():
             signal = "BUY_CALL"
 
         # INSTITUTIONAL PUT BUY SIGNAL RULES:
-        # - Spot below VWAP and 50 EMA
-        # - Supertrend Bearish (-1)
-        # - Bearish Crossover on 9/21 EMA
-        # - RSI in bearish momentum zone (32 to 48)
         elif (curr["close"] < curr["VWAP"] and 
               curr["close"] < curr["EMA_50"] and 
               curr["ST_DIR"] == -1 and
@@ -126,7 +120,7 @@ def run_trading_engine_cycle():
             signal = "BUY_PUT"
 
         if not signal:
-            print("😴 [NO SIGNAL] Noise detected. Capital preserved.")
+            print("😴 [NO SIGNAL] Market noise detected. Capital preserved.")
             return
 
         # 4. Strike Selection & Paper Order Execution
@@ -136,7 +130,6 @@ def run_trading_engine_cycle():
         print(f"\n🚀 🔥 [HIGH-CONFIDENCE TRADE TRIGGERED]: {signal}")
         print(f"🎯 Contract Selected: NIFTY {atm_strike} {option_type}")
         print(f"✅ [PAPER TRADE SIMULATED] Bought {NIFTY_LOT_SIZE} units.")
-        print(f"🛡️ Target Profit: +25% | Stop-Loss: -12% (1:2 Risk-Reward Achieved)")
 
     except Exception as e:
         print(f"❌ [ENGINE ERROR] Exception during execution cycle: {str(e)}")
@@ -152,3 +145,4 @@ def root():
 def cron_webhook_trigger(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_trading_engine_cycle)
     return {"status": "Engine cycle launched in background."}
+
